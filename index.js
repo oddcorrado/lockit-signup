@@ -83,10 +83,11 @@ Signup.prototype.postSignup = function(req, res, next) {
   var config = this.config;
   var adapter = this.adapter;
   var that = this;
-
+console.log(req.body)
   var name = req.body.name;
   var email = req.body.email;
   var password = req.body.password;
+  var extra = req.body.extra;
 
   var error = null;
   // regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L4
@@ -103,6 +104,33 @@ Signup.prototype.postSignup = function(req, res, next) {
     error = 'Username has to start with a lowercase letter (a-z)';
   } else if (!email.match(EMAIL_REGEXP)) {
     error = 'Email is invalid';
+  }
+console.log('extra', extra)
+  // extra config to add extra fields at signup time
+  if(config.useExtra) {
+    extra = extra || {}
+    // check all fields in extra
+    Object.keys(config.extra).forEach(key => {
+      // check type is configured
+      if(!config.extra[key].type) {
+        return
+      }
+
+      // check if field is required
+      if(config.extra[key].isRequired && (!extra || !extra[key])) {
+        error = 'Required field is missing';
+      }
+
+      // check type
+      if(extra && extra[key] && typeof(extra[key]) !== config.extra[key].type) {
+        error = 'Wrong field type';
+      }
+
+      // set default
+      if(!error && (!extra || !extra[key]) && config.extra[key].default) {
+        extra[key] = config.extra[key].default;
+      }
+    })
   }
 
   // custom or built-in view
@@ -124,10 +152,13 @@ Signup.prototype.postSignup = function(req, res, next) {
   }
 
   // check for duplicate name
+
+
   adapter.find('name', name, function(err, user) {
     if (err) {return next(err); }
 
-    if (user) {
+    // only if unique user names
+    if (user && config.uniqueName) {
       error = 'Username already taken';
       // send only JSON when REST is active
       if (config.rest) {return res.json(403, {error: error}); }
@@ -170,7 +201,7 @@ Signup.prototype.postSignup = function(req, res, next) {
       // looks like everything is fine
 
       // save new user to db
-      adapter.save(name, email, password, function(saveErr, savedUser) {
+      adapter.save(name, email, password, extra, function(saveErr, savedUser) {
         if (saveErr) {return next(saveErr); }
 
         // send email with link for address verification
