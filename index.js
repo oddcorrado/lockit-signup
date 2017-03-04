@@ -8,6 +8,7 @@ var uuid = require('node-uuid');
 var ms = require('ms');
 var moment = require('moment');
 var Mail = require('lockit-sendmail');
+var escape = require('escape-html');
 
 
 
@@ -83,7 +84,6 @@ Signup.prototype.postSignup = function(req, res, next) {
   var config = this.config;
   var adapter = this.adapter;
   var that = this;
-console.log(req.body)
   var name = req.body.name;
   var email = req.body.email;
   var password = req.body.password;
@@ -105,7 +105,7 @@ console.log(req.body)
   } else if (!email.match(EMAIL_REGEXP)) {
     error = 'Email is invalid';
   }
-console.log('extra', extra)
+
   // extra config to add extra fields at signup time
   if(config.useExtra) {
     extra = extra || {}
@@ -129,6 +129,10 @@ console.log('extra', extra)
       // set default
       if(!error && (!extra || !extra[key]) && config.extra[key].default) {
         extra[key] = config.extra[key].default;
+      }
+
+      if(!error && extra[key] && typeof(extra[key]) === 'string') {
+        extra[key] = escape(extra[key]);
       }
     })
   }
