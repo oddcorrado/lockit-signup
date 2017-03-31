@@ -210,7 +210,8 @@ Signup.prototype.postSignup = function(req, res, next) {
 
         // send email with link for address verification
         var m = new Mail(config);
-        m.signup(savedUser.name, savedUser.email, savedUser.signupToken, function(signupErr) {
+        // TODO make this configurable
+        m.signup(savedUser.extra.firstName, savedUser.email, savedUser.signupToken, function(signupErr) {
           if (signupErr) {return next(signupErr); }
 
           // emit event
