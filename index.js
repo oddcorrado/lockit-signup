@@ -210,7 +210,7 @@ Signup.prototype.postSignup = function(req, res, next) {
 
         // send email with link for address verification
         var m = new Mail(config);
-        // TODO make this configurable
+        // TODO make this configurable for firstname or username
         m.signup(savedUser.extra.firstName, savedUser.email, savedUser.signupToken, function(signupErr) {
           if (signupErr) {return next(signupErr); }
 
@@ -422,6 +422,18 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
       // emit 'signup' event
       that.emit('signup', updatedUser, res);
+
+      // send mail for final confirmation
+      console.log("sending mail....")
+      var m = new Mail(config);
+      m.send('emailSignupConfirmation', user.firstName, user.email, function (signupErr) {
+
+        if (signupErr) {
+          return next(signupErr);
+        } else {
+          console.log('emailSignupConfirmation sent!!!!!');
+        }
+      });
 
       if (config.signup.handleResponse) {
 
