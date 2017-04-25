@@ -8,8 +8,55 @@ var uuid = require('node-uuid');
 var ms = require('ms');
 var moment = require('moment');
 var Mail = require('lockit-sendmail');
-var escape = require('escape-html');
 
+'use strict';
+var matchHtmlRegExp = /["&<>']/;
+function escapeHtml(string) {
+  var str = '' + string;
+  var match = matchHtmlRegExp.exec(str);
+
+  if (!match) {
+    return str;
+  }
+
+  var escape;
+  var html = '';
+  var index = 0;
+  var lastIndex = 0;
+
+  for (index = match.index; index < str.length; index++) {
+    switch (str.charCodeAt(index)) {
+      case 34: // "
+        escape = '&quot;';
+        break;
+      case 38: // &
+        escape = '&amp;';
+        break;
+      case 39: // '
+        escape = '`';
+        break;
+      case 60: // <
+        escape = '&lt;';
+        break;
+      case 62: // >
+        escape = '&gt;';
+        break;
+      default:
+        continue;
+    }
+
+    if (lastIndex !== index) {
+      html += str.substring(lastIndex, index);
+    }
+
+    lastIndex = index + 1;
+    html += escape;
+  }
+
+  return lastIndex !== index
+    ? html + str.substring(lastIndex, index)
+    : html;
+}
 
 
 /**
@@ -94,8 +141,6 @@ Signup.prototype.postSignup = function(req, res, next) {
   var EMAIL_REGEXP = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$/;
   var PWD_REGEXP = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/;
 
-console.log(name, '>>>', encodeURIComponent(name))
-console.log(name.replace(/ /g,''), '>>>', encodeURIComponent(name.replace(/ /g,'')))
   // check for valid inputs
   if (!name || !email || !password) {
     error = 'All fields are required';
@@ -137,7 +182,7 @@ console.log(name.replace(/ /g,''), '>>>', encodeURIComponent(name.replace(/ /g,'
       }
 
       if(!error && extra[key] && typeof(extra[key]) === 'string') {
-        extra[key] = escape(extra[key]);
+        extra[key] = escapeHtml(extra[key]);
       }
     })
   }
