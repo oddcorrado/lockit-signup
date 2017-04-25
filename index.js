@@ -92,11 +92,14 @@ Signup.prototype.postSignup = function(req, res, next) {
   var error = null;
   // regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L4
   var EMAIL_REGEXP = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$/;
+  var PWD_REGEXP = /^(?=.*\d)(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/;
 
+console.log(name, '>>>', encodeURIComponent(name))
+console.log(name.replace(/ /g,''), '>>>', encodeURIComponent(name.replace(/ /g,'')))
   // check for valid inputs
   if (!name || !email || !password) {
     error = 'All fields are required';
-  } else if (name !== encodeURIComponent(name)) {
+  } else if (name.replace(/ /g,'') !== encodeURIComponent(name.replace(/ /g,''))) {
     error = 'Username may not contain any non-url-safe characters';
   } else if (name !== name.toLowerCase()) {
     error = 'Username must be lowercase';
@@ -104,6 +107,8 @@ Signup.prototype.postSignup = function(req, res, next) {
     error = 'Username has to start with a lowercase letter (a-z)';
   } else if (!email.match(EMAIL_REGEXP)) {
     error = 'Email is invalid';
+  } else if (!password.match(PWD_REGEXP)) {
+    error = 'Password is not strong enough';
   }
 
   // extra config to add extra fields at signup time
@@ -424,7 +429,6 @@ Signup.prototype.getSignupToken = function(req, res, next) {
       that.emit('signup', updatedUser, res);
 
       // send mail for final confirmation
-      console.log("sending mail....")
       var m = new Mail(config);
       m.send('emailSignupConfirmation', user.firstName, user.email, function (signupErr) {
 
