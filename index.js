@@ -422,16 +422,16 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
   // if format is wrong no need to query the database
   if (!re.test(token)) {return next(); }
-console.log("AAA")
+
   // find user by token
   adapter.find('signupToken', token, function(err, user) {
     if (err) {return next(err); }
-console.log("BBB")
+
     // no user found -> forward to error handling middleware
     if (!user) {return next(); }
-console.log("CCC")
+
     // check if token has expired
-/*    if (new Date(user.signupTokenExpires) < new Date()) {
+    if (new Date(user.signupTokenExpires) < new Date()) {
 
       // delete old token
       delete user.signupToken;
@@ -464,7 +464,7 @@ console.log("CCC")
 
     // remove token and token expiration date from user object
     delete user.signupToken;
-    delete user.signupTokenExpires; */
+    delete user.signupTokenExpires; 
 
     // save user with updated values to db
     adapter.update(user, function(updateErr, updatedUser) {
