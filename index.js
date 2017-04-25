@@ -238,7 +238,7 @@ Signup.prototype.postSignup = function(req, res, next) {
       if (foundUser) {
         // send already registered email
         var mail = new Mail(config);
-        return mail.taken(foundUser.name, foundUser.email, function(takenErr) {
+        return mail.taken(config.emailName ? config.emailName(foundUser) : user.name, foundUser.email, function(takenErr) {
           if (takenErr) {return next(takenErr); }
 
           // send only JSON when REST is active
@@ -261,7 +261,7 @@ Signup.prototype.postSignup = function(req, res, next) {
         // send email with link for address verification
         var m = new Mail(config);
         // TODO make this configurable for firstname or username
-        m.signup(savedUser.extra.firstName, savedUser.email, savedUser.signupToken, function(signupErr) {
+        m.signup(config.emailName ? config.emailName(savedUser) : savedUser.name, savedUser.email, savedUser.signupToken, function(signupErr) {
           if (signupErr) {return next(signupErr); }
 
           // emit event
@@ -381,7 +381,7 @@ Signup.prototype.postSignupResend = function(req, res, next) {
 
       // send sign up email
       var mail = new Mail(config);
-      mail.resend(updatedUser.name, email, token, function(resendErr) {
+      mail.resend(config.emailName ? config.emailName(updatedUser) : updatedUser.name, email, token, function(resendErr) {
         if (resendErr) {return next(resendErr); }
 
         // send only JSON when REST is active
@@ -422,16 +422,16 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
   // if format is wrong no need to query the database
   if (!re.test(token)) {return next(); }
-
+console.log("AAA")
   // find user by token
   adapter.find('signupToken', token, function(err, user) {
     if (err) {return next(err); }
-
+console.log("BBB")
     // no user found -> forward to error handling middleware
     if (!user) {return next(); }
-
+console.log("CCC")
     // check if token has expired
-    if (new Date(user.signupTokenExpires) < new Date()) {
+/*    if (new Date(user.signupTokenExpires) < new Date()) {
 
       // delete old token
       delete user.signupToken;
@@ -464,7 +464,7 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
     // remove token and token expiration date from user object
     delete user.signupToken;
-    delete user.signupTokenExpires;
+    delete user.signupTokenExpires; */
 
     // save user with updated values to db
     adapter.update(user, function(updateErr, updatedUser) {
@@ -475,7 +475,7 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
       // send mail for final confirmation
       var m = new Mail(config);
-      m.send('emailSignupConfirmation', user.firstName, user.email, function (signupErr) {
+      m.send('emailSignupConfirmation', config.emailName ? config.emailName(user) : user.name, user.email, function (signupErr) {
 
         if (signupErr) {
           return next(signupErr);
@@ -486,21 +486,95 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
       if (config.signup.handleResponse) {
 
-        // send only JSON when REST is active
-        if (config.rest) {return res.send(204); }
+        if (config.signUpAutoLogin) {
+          console.log('attempting auto login ....');
+          AutoLogin (user, adapter, config, that, req, res, next);
+        }
+        else {
+          // send only JSON when REST is active
+          if (config.rest) {return res.send(204); }
 
-        // custom or built-in view
-        var view = config.signup.views.verified || join('mail-verification-success');
+          // custom or built-in view
+          var view = config.signup.views.verified || join('mail-verification-success');
 
-        // render email verification success view
-        res.render(view, {
-          title: 'Sign up success',
-          basedir: req.app.get('views')
-        });
-
+          // render email verification success view
+          res.render(view, {
+            title: 'Sign up success',
+            basedir: req.app.get('views')
+          });
+        }
       }
-
     });
-
   });
 };
+
+function AutoLogin (user, adapter, config, that, req, res, next) {
+  // shift tracking values
+  var now = new Date();
+
+  // update previous login time and ip
+  user.previousLoginTime = user.currentLoginTime || now;
+  user.previousLoginIp = user.currentLoginIp || req.ip;
+
+  // save login time
+  user.currentLoginTime = now;
+  user.currentLoginIp = req.ip;
+
+  // set failed login attempts to zero but save them in the session
+  req.session.failedLoginAttempts = user.failedLoginAttempts;
+  user.failedLoginAttempts = 0;
+  user.accountLocked = false;
+
+  // save user to db
+  adapter.update(user, function(updateErr, updatedUser) {
+    if (updateErr) {return next(updateErr); }
+
+    // create session and save the name and email address
+    req.session.name = updatedUser.name;
+    req.session.email = updatedUser.email;
+
+    // check if two-factor authentication is enabled
+    if (!updatedUser.twoFactorEnabled) {
+
+      // get redirect url
+      var target = req.query.redirect || '/';
+
+      // user is now logged in
+      req.session.loggedIn = true;
+
+      // emit 'login' event
+      that.emit('login', updatedUser, res, target);
+
+      // let lockit handle the response
+      if (config.login.handleResponse) {
+
+        // send only JSON when REST is active
+        if (config.rest) {
+          return res.send(204); }
+
+        // redirect to target url
+        res.redirect(target);
+      }
+      return;
+    }
+
+    // two-factor authentication is enabled
+
+    // send only JSON when REST is active
+    if (config.rest) {
+      return res.json({
+        twoFactorEnabled: true
+      });
+    }
+
+    // custom or built-in view
+    var twoFactorView = config.login.views.twoFactor || join('two-factor');
+
+    // render two-factor authentication template
+    res.render(twoFactorView, {
+      title: 'Two-factor authentication',
+      action: that.twoFactorRoute,
+      basedir: req.app.get('views')
+    });
+  });
+}
