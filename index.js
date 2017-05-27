@@ -464,7 +464,7 @@ Signup.prototype.getSignupToken = function(req, res, next) {
 
     // remove token and token expiration date from user object
     delete user.signupToken;
-    delete user.signupTokenExpires; 
+    delete user.signupTokenExpires;
 
     // save user with updated values to db
     adapter.update(user, function(updateErr, updatedUser) {
@@ -474,7 +474,7 @@ Signup.prototype.getSignupToken = function(req, res, next) {
       that.emit('signup', updatedUser, res);
 
       // send mail for final confirmation
-      var m = new Mail(config);
+      /* var m = new Mail(config);
       m.send('emailSignupConfirmation', config.emailName ? config.emailName(user) : user.name, user.email, function (signupErr) {
 
         if (signupErr) {
@@ -482,7 +482,7 @@ Signup.prototype.getSignupToken = function(req, res, next) {
         } else {
           console.log('emailSignupConfirmation sent!!!!!');
         }
-      });
+      }); */
 
       if (config.signup.handleResponse) {
 
